@@ -18,6 +18,7 @@ const (
 	lockRankSweepWaiters
 	lockRankAssistQueue
 	lockRankSweep
+	lockRankMark // ANGE XXX: FIXME Added this rank; not sure if I need to add something below
 	lockRankPollDesc
 	lockRankCpuprof
 	lockRankSched
@@ -78,6 +79,7 @@ var lockNames = []string{
 	lockRankSweepWaiters:   "sweepWaiters",
 	lockRankAssistQueue:    "assistQueue",
 	lockRankSweep:          "sweep",
+	lockRankMark:           "mark",
 	lockRankPollDesc:       "pollDesc",
 	lockRankCpuprof:        "cpuprof",
 	lockRankSched:          "sched",
@@ -145,6 +147,7 @@ var lockPartialOrder [][]lockRank = [][]lockRank{
 	lockRankSweepWaiters:   {},
 	lockRankAssistQueue:    {},
 	lockRankSweep:          {},
+	lockRankMark:           {},
 	lockRankPollDesc:       {},
 	lockRankCpuprof:        {},
 	lockRankSched:          {lockRankSysmon, lockRankScavenge, lockRankForcegc, lockRankSweepWaiters, lockRankAssistQueue, lockRankSweep, lockRankPollDesc, lockRankCpuprof},

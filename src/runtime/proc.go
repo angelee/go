@@ -541,7 +541,7 @@ var (
 	// Readers that cannot take the lock may (carefully!) use the atomic
 	// variables below.
 	allglock mutex
-	allgs    []*g
+	allgs    []unsafe.Pointer
 
 	// allglen and allgptr are atomic variables that contain len(allgs) and
 	// &allgs[0] respectively. Proper ordering depends on totally-ordered
@@ -556,7 +556,7 @@ var (
 	// unsafe.Pointer, not uintptr, to ensure that GC can still reach it
 	// even if it points to a stale array.
 	allglen uintptr
-	allgptr **g
+	allgptr *unsafe.Pointer
 )
 
 func allgadd(gp *g) {
@@ -565,7 +565,8 @@ func allgadd(gp *g) {
 	}
 
 	lock(&allglock)
-	allgs = append(allgs, gp)
+	var p unsafe.Pointer = gc_mask_ptr(unsafe.Pointer(gp))
+	allgs = append(allgs, p)
 	if &allgs[0] != allgptr {
 		atomicstorep(unsafe.Pointer(&allgptr), unsafe.Pointer(&allgs[0]))
 	}
@@ -576,7 +577,7 @@ func allgadd(gp *g) {
 // allGsSnapshot returns a snapshot of the slice of all Gs.
 //
 // The world must be stopped or allglock must be held.
-func allGsSnapshot() []*g {
+func allGsSnapshot() []unsafe.Pointer {
 	assertWorldStoppedOrLockHeld(&allglock)
 
 	// Because the world is stopped or allglock is held, allgadd
@@ -584,6 +585,13 @@ func allGsSnapshot() []*g {
 	// monotonically and existing entries never change, so we can
 	// simply return a copy of the slice header. For added safety,
 	// we trim everything past len because that can still change.
+	// ANGE XXX: FIXME redo this later ...
+	// we want to just not mask the pointer if the flag is not set
+	for i, p := range allgs {
+		var gp *g = (*g)(gc_undo_mask_ptr(p))
+		allgs[i] = unsafe.Pointer(gp)
+	}
+
 	return allgs[:len(allgs):len(allgs)]
 }
 
@@ -604,7 +612,8 @@ func atomicAllGIndex(ptr **g, i uintptr) *g {
 // forEachG takes a lock to exclude concurrent addition of new Gs.
 func forEachG(fn func(gp *g)) {
 	lock(&allglock)
-	for _, gp := range allgs {
+	for _, p := range allgs {
+		var gp *g = (*g)(gc_undo_mask_ptr(p))
 		fn(gp)
 	}
 	unlock(&allglock)
@@ -617,7 +626,8 @@ func forEachG(fn func(gp *g)) {
 func forEachGRace(fn func(gp *g)) {
 	ptr, length := atomicAllG()
 	for i := uintptr(0); i < length; i++ {
-		gp := atomicAllGIndex(ptr, i)
+		p := atomicAllGIndex(ptr, i)
+		var gp *g = (*g)(gc_undo_mask_ptr(unsafe.Pointer(p)))
 		fn(gp)
 	}
 	return
@@ -4555,6 +4565,11 @@ func newproc1(fn *funcval, callergp *g, callerpc uintptr) *g {
 	if newg.trackingSeq%gTrackingPeriod == 0 {
 		newg.tracking = true
 	}
+	// ANGE XXX:
+	if readgstatus(newg) != _Gdead {
+		println("Goroutine from gfree list has status ", readgstatus(newg))
+		throw("Unexpected goroutine status!")
+	}
 	casgstatus(newg, _Gdead, _Grunnable)
 	gcController.addScannableStack(pp, int64(newg.stack.hi-newg.stack.lo))
 
@@ -4622,7 +4637,8 @@ func saveAncestors(callergp *g) *[]ancestorInfo {
 // Put on gfree list.
 // If local list is too long, transfer a batch to the global list.
 func gfput(pp *p, gp *g) {
-	if readgstatus(gp) != _Gdead {
+	var status uint32 = readgstatus(gp)
+	if status != _Gdead {
 		throw("gfput: bad status (not Gdead)")
 	}
 

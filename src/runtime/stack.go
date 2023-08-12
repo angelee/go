@@ -1187,6 +1187,7 @@ func shrinkstack(gp *g) {
 	if debug.gcshrinkstackoff > 0 {
 		return
 	}
+	// ANGE XXX: might be able to use this function to filter out user goroutines versus runtime ones
 	f := findfunc(gp.startpc)
 	if f.valid() && f.funcID == abi.FuncID_gcBgMarkWorker {
 		// We're not allowed to shrink the gcBgMarkWorker

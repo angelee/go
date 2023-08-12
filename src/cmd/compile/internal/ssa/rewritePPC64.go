@@ -5797,7 +5797,7 @@ func rewriteValuePPC64_OpPPC64ISEL(v *Value) bool {
 		}
 		x := v_0
 		y := v_1
-		if v_2.Op != OpPPC64CMPWconst || auxIntToInt32(v_2.AuxInt) != 0 {
+		if v_2.Op != OpSelect1 {
 			break
 		}
 		v_2_0 := v_2.Args[0]

@@ -312,6 +312,8 @@ var debug struct {
 	dontfreezetheworld int32
 	efence             int32
 	gccheckmark        int32
+	gcddtrace		   int32 // ANGE XXX: tracing for detect deadlocks during GC
+	gcdetectdeadlocks  int32 // ANGE XXX: detect deadlocks during GC
 	gcpacertrace       int32
 	gcshrinkstackoff   int32
 	gcstoptheworld     int32
